@@ -10,7 +10,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t flask-img:v3 .'
+                sh 'docker build -t flask-img .'
             }
         }
 
@@ -19,8 +19,8 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'sathish33', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                         echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-                        docker tag flask-img:v3 ${DOCKER_USER}/flask-img:v3
-                        docker push ${DOCKER_USER}/flask-img:v3
+                        docker tag flask-img ${DOCKER_USER}/sathish-itc:v3
+                        docker push ${DOCKER_USER}/sathish-itc:v3
                     '''
                 }
             }
