@@ -34,7 +34,7 @@ Start web server
 FLASK_APP=app.py flask run --host=0.0.0.0
 ```
 
-## 4. Test  44433
+## 4. Test  
 
 Open a browser and go to URL
 ```
