@@ -39,20 +39,20 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-    steps {
-        script {
-            def scannerHome = tool 'SonarQube Scanner'
-            withSonarQubeEnv('sonarqube-local') {
-                sh """
-                  ${scannerHome}/bin/sonar-scanner \
-                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                    -Dsonar.sources=. \
-                    -Dsonar.token=${SONAR_AUTH_TOKEN}
-                """
+            steps {
+                script {
+                    def scannerHome = tool 'SonarQube Scanner'
+                    withSonarQubeEnv('sonarqube-local') {
+                        sh """
+                          ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.sources=. \
+                            -Dsonar.token=${SONAR_AUTH_TOKEN}
+                        """
+                    }
+                }
             }
         }
-    }
-}
 
         stage('Quality Gate') {
             when {
@@ -86,13 +86,13 @@ pipeline {
                 expression { params.DEPLOY }
             }
             steps {
-                script {
-                    helmDeploy(
-                        env.HELM_RELEASE,
-                        env.K8S_NAMESPACE,
-                        buildTag
-                    )
-                }
+                sh """
+                  helm upgrade --install ${HELM_RELEASE} ./helm \
+                    --namespace ${K8S_NAMESPACE} \
+                    --create-namespace \
+                    --set image.repository=sathish33/sathish-itc \
+                    --set image.tag=${buildTag}
+                """
             }
         }
     }
@@ -109,3 +109,4 @@ pipeline {
         }
     }
 }
+
