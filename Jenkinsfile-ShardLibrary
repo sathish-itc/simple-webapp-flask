@@ -13,8 +13,14 @@ pipeline {
     }
 
     environment {
+        // Kubernetes / Helm
         K8S_NAMESPACE = "${ENV}"
-        HELM_RELEASE = "flask-${ENV}"
+        HELM_RELEASE  = "flask-${ENV}"
+
+        // SonarQube (THIS WAS MISSING)
+        SONAR_PROJECT_KEY = "sampleapp"
+        SONAR_HOST_URL    = "http://20.75.196.235:9000"
+        SONAR_AUTH_TOKEN  = credentials('sonarqube-token')
     }
 
     stages {
@@ -37,14 +43,18 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    def scannerHome = tool name: 'mysonarscanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+                    def scannerHome = tool(
+                        name: 'mysonarscanner',
+                        type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+                    )
+
                     withSonarQubeEnv('sonarkube-swathi') {
                         sh """
-                            ${scannerHome}/bin/sonar-scanner \
-                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                -Dsonar.sources=. \
-                                -Dsonar.host.url=${SONAR_HOST_URL} \
-                                -Dsonar.login=$SONAR_AUTH_TOKEN
+                          ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.sources=. \
+                            -Dsonar.host.url=${SONAR_HOST_URL} \
+                            -Dsonar.login=${SONAR_AUTH_TOKEN}
                         """
                     }
                 }
