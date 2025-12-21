@@ -13,11 +13,11 @@ pipeline {
     }
 
     environment {
-        K8S_NAMESPACE = "${ENV}"
-        HELM_RELEASE = "flask-${ENV}"
+        K8S_NAMESPACE = "${params.ENV}"
+        HELM_RELEASE = "flask-${params.ENV}"
     }
 
-    stages {
+    stages { // <--- Start of stages block
 
         stage('SonarQube Analysis') {
             steps {
@@ -25,8 +25,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('SonarQubeServer1') {
                         sh """
-                            dotnet sonarscanner begin /k:"sampleapp" \
-                            /d:sonar.login=$SONAR_TOKEN
+                            dotnet sonarscanner begin /k:"sampleapp" /d:sonar.login=$SONAR_TOKEN
                             dotnet build --no-restore -c Release
                             dotnet sonarscanner end /d:sonar.login=$SONAR_TOKEN
                         """
@@ -91,14 +90,8 @@ pipeline {
                     passwordVariable: 'AZURE_CLIENT_SECRET'
                 )]) {
                     sh """
-                        az login --service-principal \
-                        -u "$AZURE_CLIENT_ID" \
-                        -p "$AZURE_CLIENT_SECRET" \
-                        --tenant 2b32b1fa-7899-482e-a6de-be99c0ff5516
-                        az aks get-credentials \
-                        --resource-group rg-dev-flux \
-                        --name aks-dev-flux-cluster \
-                        --overwrite-existing
+                        az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant 2b32b1fa-7899-482e-a6de-be99c0ff5516
+                        az aks get-credentials --resource-group rg-dev-flux --name aks-dev-flux-cluster --overwrite-existing
                     """
                 }
             }
@@ -110,12 +103,12 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Deploying to environment: ${ENV}"
+                    echo "Deploying to environment: ${params.ENV}"
                     deployAKS(buildTag)
                 }
             }
         }
-    }
+    } // <--- End of stages block
 
     post {
         always {
