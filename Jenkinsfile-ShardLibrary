@@ -8,7 +8,7 @@ pipeline {
     parameters {
         string(name: 'APP_VERSION', defaultValue: '1.0.0')
         choice(name: 'ENV', choices: ['dev','staging','prod'])
-        string(name: 'BRANCH', defaultValue: 'main')
+        string(name: 'BRANCH', defaultValue: 'master')
         booleanParam(name: 'DEPLOY', defaultValue: true)
     }
 
