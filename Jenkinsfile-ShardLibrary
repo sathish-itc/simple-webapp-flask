@@ -13,15 +13,14 @@ pipeline {
     }
 
     environment {
-        // Kubernetes / Helm
-        K8S_NAMESPACE = "${ENV}"
-        HELM_RELEASE  = "flask-${ENV}"
+    K8S_NAMESPACE = "${ENV}"
+    HELM_RELEASE = "flask-${ENV}"
 
-        // SonarQube (THIS WAS MISSING)
-        SONAR_PROJECT_KEY = "sampleapp"
-        SONAR_HOST_URL    = "http://20.75.196.235:9000"
-        SONAR_AUTH_TOKEN  = credentials('sonarqube-token')
-    }
+    SONAR_PROJECT_KEY = "sampleapp"
+    SONAR_HOST_URL = "http://20.75.196.235:9000"
+    SONAR_AUTH_TOKEN = credentials('sonarkube-swathipothula')
+}
+
 
     stages {
 
@@ -109,14 +108,15 @@ pipeline {
     }
 
     post {
-        always {
+    always {
+        node {
             cleanWs()
         }
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed!'
-        }
+    }
+    success {
+        echo 'Pipeline completed successfully!'
+    }
+    failure {
+        echo 'Pipeline failed!'
     }
 }
