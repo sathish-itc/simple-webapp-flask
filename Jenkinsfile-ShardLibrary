@@ -36,7 +36,16 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                sonarScan()
+                echo 'Running SonarQube analysis...'
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    withSonarQubeEnv('SonarQubeServer1') {
+                        sh """
+                            dotnet sonarscanner begin /k:"sampleapp" /d:sonar.login=$SONAR_TOKEN
+                            dotnet build --no-restore -c Release
+                            dotnet sonarscanner end /d:sonar.login=$SONAR_TOKEN
+                        """
+                    }
+                }
             }
         }
 
@@ -45,6 +54,13 @@ pipeline {
                 timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
+            }
+        }
+
+        stage('Publish Artifacts') {
+            steps {
+                sh 'dotnet publish -c Release -o publish'
+                archiveArtifacts artifacts: 'publish/**', fingerprint: true
             }
         }
 
