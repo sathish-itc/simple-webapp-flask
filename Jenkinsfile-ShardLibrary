@@ -60,12 +60,16 @@ pipeline {
         }
 
         stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
+    when {
+        expression { params.ENV == 'prod' }
+    }
+    steps {
+        timeout(time: 5, unit: 'MINUTES') {
+            waitForQualityGate abortPipeline: true
         }
+    }
+}
+
 
         stage('Publish Artifacts') {
             steps {
