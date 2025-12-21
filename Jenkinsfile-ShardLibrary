@@ -1,0 +1,125 @@
+@Library('mySharedLibrary') _
+
+def buildTag = ''
+
+pipeline {
+    agent { label 'build-agent' }
+
+    parameters {
+    string(name: 'APP_VERSION', defaultValue: '1.0.0')
+    choice(name: 'ENV', choices: ['dev','staging','prod'])
+  }
+
+  environment {
+    K8S_NAMESPACE = "${ENV}"
+    HELM_RELEASE = "flask-${ENV}"
+  }
+
+     stage('SonarQube Analysis') {
+            steps {
+                echo 'Running SonarQube analysis...'
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    withSonarQubeEnv('SonarQubeServer1') {
+                        sh """
+                            dotnet sonarscanner begin /k:"sampleapp" /d:sonar.host.url=$SONAR_HOST_URL /d:sonar.login=$SONAR_TOKEN
+                            dotnet build --no-restore -c Release
+                            dotnet sonarscanner end /d:sonar.login=$SONAR_TOKEN
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                echo 'Checking SonarQube Quality Gate...'
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Publish Artifacts') {
+            steps {
+                echo 'Publishing build artifacts...'
+                sh 'dotnet publish -c Release -o publish'
+                archiveArtifacts artifacts: 'publish/**', fingerprint: true
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning workspace...'
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+
+    stages {
+        stage('Generate Tag') {
+            steps {
+                script {
+                    buildTag = generateTag()
+                }
+            }
+        }
+
+
+        stage('Checkout Code') {
+            steps {
+                git url: 'https://github.com/gititc778/sampleApp.git', branch: "${params.BRANCH}"
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    buildDocker("$buildTag")
+                }
+            }
+        }
+
+        stage('Push to Docker Registry') {
+            steps {
+                script {
+                    pushDocker("$buildTag")
+                }
+            }
+        }
+
+         stage('Azure Login & AKS Setup') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'aks-login',
+                    usernameVariable: 'AZURE_CLIENT_ID',
+                    passwordVariable: 'AZURE_CLIENT_SECRET'
+                )]) {
+                    sh """
+                        az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant 2b32b1fa-7899-482e-a6de-be99c0ff5516
+                        az aks get-credentials --resource-group rg-dev-flux --name aks-dev-flux-cluster --overwrite-existing
+                        kubectl get pods -n default
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            when {
+                expression { params.DEPLOY }
+            }
+            steps {
+                script {
+
+                    input message: "Do you want to deploy to Kubernetes?", ok: "Deploy"
+                    echo "Deploying to environment: ${env.ENV}"
+                    deployAKS("$buildTag")
+                }
+            }
+        }
+    }
+}
