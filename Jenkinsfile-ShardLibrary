@@ -36,13 +36,15 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                echo 'Running SonarQube analysis...'
-                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                    withSonarQubeEnv('SonarQubeServer1') {
+                script {
+                    def scannerHome = tool name: 'mysonarscanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+                    withSonarQubeEnv('sonarkube-swathi') {
                         sh """
-                            dotnet sonarscanner begin /k:"sampleapp" /d:sonar.login=$SONAR_TOKEN
-                            dotnet build --no-restore -c Release
-                            dotnet sonarscanner end /d:sonar.login=$SONAR_TOKEN
+                            ${scannerHome}/bin/sonar-scanner \
+                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                -Dsonar.sources=. \
+                                -Dsonar.host.url=${SONAR_HOST_URL} \
+                                -Dsonar.login=$SONAR_AUTH_TOKEN
                         """
                     }
                 }
