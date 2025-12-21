@@ -8,7 +8,7 @@ pipeline {
     parameters {
         string(name: 'APP_VERSION', defaultValue: '1.0.0')
         choice(name: 'ENV', choices: ['dev','staging','prod'])
-        string(name: 'BRANCH', defaultValue: 'main')
+        string(name: 'BRANCH', defaultValue: 'master')
         booleanParam(name: 'DEPLOY', defaultValue: true)
     }
 
@@ -61,7 +61,7 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git url: 'https://github.com/gititc778/sampleApp.git',
+                git url: 'https://github.com/sathish-itc/simple-webapp-flask',
                     branch: "${params.BRANCH}"
             }
         }
