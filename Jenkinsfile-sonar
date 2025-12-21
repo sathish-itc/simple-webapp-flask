@@ -1,20 +1,23 @@
+@Library('mySharedLibrary') _
+
+def buildTag = ''
+
 pipeline {
-    agent any
+    agent { label 'build-agent' }
+
+    parameters {
+        string(name: 'APP_VERSION', defaultValue: '1.0.0')
+        choice(name: 'ENV', choices: ['dev','staging','prod'])
+        string(name: 'BRANCH', defaultValue: 'main')
+        booleanParam(name: 'DEPLOY', defaultValue: true)
+    }
+
+    environment {
+        K8S_NAMESPACE = "${ENV}"
+        HELM_RELEASE = "flask-${ENV}"
+    }
 
     stages {
-        stage('Restore') {
-            steps {
-                echo 'Restoring NuGet packages...'
-                sh 'dotnet restore'
-            }
-        }
-
-        stage('Build') {
-            steps {
-                echo 'Building the project...'
-                sh 'dotnet build --no-restore -c Release'
-            }
-        }
 
         stage('SonarQube Analysis') {
             steps {
@@ -22,7 +25,8 @@ pipeline {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('SonarQubeServer1') {
                         sh """
-                            dotnet sonarscanner begin /k:"sampleapp" /d:sonar.host.url=$SONAR_HOST_URL /d:sonar.login=$SONAR_TOKEN
+                            dotnet sonarscanner begin /k:"sampleapp" \
+                            /d:sonar.login=$SONAR_TOKEN
                             dotnet build --no-restore -c Release
                             dotnet sonarscanner end /d:sonar.login=$SONAR_TOKEN
                         """
@@ -45,6 +49,70 @@ pipeline {
                 echo 'Publishing build artifacts...'
                 sh 'dotnet publish -c Release -o publish'
                 archiveArtifacts artifacts: 'publish/**', fingerprint: true
+            }
+        }
+
+        stage('Generate Tag') {
+            steps {
+                script {
+                    buildTag = generateTag()
+                }
+            }
+        }
+
+        stage('Checkout Code') {
+            steps {
+                git url: 'https://github.com/gititc778/sampleApp.git',
+                    branch: "${params.BRANCH}"
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    buildDocker(buildTag)
+                }
+            }
+        }
+
+        stage('Push to Docker Registry') {
+            steps {
+                script {
+                    pushDocker(buildTag)
+                }
+            }
+        }
+
+        stage('Azure Login & AKS Setup') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'aks-login',
+                    usernameVariable: 'AZURE_CLIENT_ID',
+                    passwordVariable: 'AZURE_CLIENT_SECRET'
+                )]) {
+                    sh """
+                        az login --service-principal \
+                        -u "$AZURE_CLIENT_ID" \
+                        -p "$AZURE_CLIENT_SECRET" \
+                        --tenant 2b32b1fa-7899-482e-a6de-be99c0ff5516
+                        az aks get-credentials \
+                        --resource-group rg-dev-flux \
+                        --name aks-dev-flux-cluster \
+                        --overwrite-existing
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            when {
+                expression { params.DEPLOY }
+            }
+            steps {
+                script {
+                    echo "Deploying to environment: ${ENV}"
+                    deployAKS(buildTag)
+                }
             }
         }
     }
