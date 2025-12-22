@@ -7,7 +7,7 @@ pipeline {
 
     parameters {
         string(name: 'APP_VERSION', defaultValue: '1.0.0')
-        choice(name: 'ENV', choices: ['dev','staging','prod'])
+        choice(name: 'ENV', choices: ['dev', 'staging', 'prod'])
         string(name: 'BRANCH', defaultValue: 'master')
         booleanParam(name: 'DEPLOY', defaultValue: true)
     }
@@ -60,23 +60,15 @@ pipeline {
         }
 
         stage('Quality Gate') {
-    when {
-        expression { params.ENV == 'prod' }
-    }
-    steps {
-        timeout(time: 5, unit: 'MINUTES') {
-            waitForQualityGate abortPipeline: true
+            when {
+                expression { params.ENV == 'prod' }
+            }
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
         }
-    }
-}
-
-
-        // stage('Publish Artifacts') {
-        //     steps {
-        //         sh 'dotnet publish -c Release -o publish'
-        //         archiveArtifacts artifacts: 'publish/**', fingerprint: true
-        //     }
-        // }
 
         stage('Build Docker Image') {
             steps {
@@ -100,11 +92,12 @@ pipeline {
             }
             steps {
                 script {
-                    helmDeploy(
-                        env.HELM_RELEASE,
-                        env.K8S_NAMESPACE,
-                        buildTag
-                    )
+                    sh """
+                      helm upgrade --install ${HELM_RELEASE} ./helm \
+                        --namespace ${K8S_NAMESPACE} \
+                        --create-namespace \
+                        --set image.tag=${buildTag}
+                    """
                 }
             }
         }
