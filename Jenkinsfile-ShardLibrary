@@ -71,12 +71,12 @@ pipeline {
 }
 
 
-        stage('Publish Artifacts') {
-            steps {
-                sh 'dotnet publish -c Release -o publish'
-                archiveArtifacts artifacts: 'publish/**', fingerprint: true
-            }
-        }
+        // stage('Publish Artifacts') {
+        //     steps {
+        //         sh 'dotnet publish -c Release -o publish'
+        //         archiveArtifacts artifacts: 'publish/**', fingerprint: true
+        //     }
+        // }
 
         stage('Build Docker Image') {
             steps {
