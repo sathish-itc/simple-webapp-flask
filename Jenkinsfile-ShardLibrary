@@ -73,15 +73,18 @@ pipeline {
         }
 
         stage('Package Python Artifact') {
-            steps {
-                sh '''
-                  mkdir -p dist
-                  tar -czf dist/flask-app-${APP_VERSION}.tar.gz \
-                    app.py requirements.txt templates static
-                '''
-                archiveArtifacts artifacts: 'dist/*.tar.gz', fingerprint: true
-            }
-        }
+    steps {
+        sh '''
+          mkdir -p dist
+          tar -czf dist/flask-app-${APP_VERSION}.tar.gz \
+            --exclude=dist \
+            --exclude=.git \
+            .
+        '''
+        archiveArtifacts artifacts: 'dist/*.tar.gz', fingerprint: true
+    }
+}
+
 
         /* ---------------- CD STAGES ---------------- */
 
