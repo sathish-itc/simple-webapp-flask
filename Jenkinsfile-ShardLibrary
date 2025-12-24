@@ -17,8 +17,8 @@ pipeline {
         SONAR_HOST_URL    = "http://20.75.196.235:9000"
         SONAR_TOKEN       = credentials('sonarkube-swathipothula')
 
-        K8S_NAMESPACE = "${ENV}"
-        HELM_RELEASE  = "flask-${ENV}"
+        K8S_NAMESPACE = "${params.ENV}"
+        HELM_RELEASE  = "flask-${params.ENV}"
     }
 
     stages {
@@ -27,6 +27,14 @@ pipeline {
             steps {
                 git url: 'https://github.com/sathish-itc/simple-webapp-flask',
                     branch: "${params.BRANCH}"
+            }
+        }
+
+        stage('Generate Build Tag') {
+            steps {
+                script {
+                    buildTag = generateTag()
+                }
             }
         }
 
@@ -66,10 +74,10 @@ pipeline {
             }
             steps {
                 helmDeploy(
-                    release  : HELM_RELEASE,
-                    chartPath: './helm',
-                    namespace: K8S_NAMESPACE,
-                    imageTag : buildTag
+                    release   : HELM_RELEASE,
+                    chartPath : './helm',
+                    namespace : K8S_NAMESPACE,
+                    imageTag  : buildTag
                 )
             }
         }
