@@ -23,7 +23,9 @@ pipeline {
 
     stages {
 
-        stage('Generate Tag') {
+        /* ---------------- CI STAGES ---------------- */
+
+        stage('Generate Build Tag') {
             steps {
                 script {
                     buildTag = generateTag()
@@ -70,6 +72,19 @@ pipeline {
             }
         }
 
+        stage('Package Python Artifact') {
+            steps {
+                sh '''
+                  mkdir -p dist
+                  tar -czf dist/flask-app-${APP_VERSION}.tar.gz \
+                    app.py requirements.txt templates static
+                '''
+                archiveArtifacts artifacts: 'dist/*.tar.gz', fingerprint: true
+            }
+        }
+
+        /* ---------------- CD STAGES ---------------- */
+
         stage('Build Docker Image') {
             steps {
                 script {
@@ -91,14 +106,12 @@ pipeline {
                 expression { params.DEPLOY }
             }
             steps {
-                script {
-                    sh """
-                      helm upgrade --install ${HELM_RELEASE} ./helm \
-                        --namespace ${K8S_NAMESPACE} \
-                        --create-namespace \
-                        --set image.tag=${buildTag}
-                    """
-                }
+                sh """
+                  helm upgrade --install ${HELM_RELEASE} ./helm \
+                    --namespace ${K8S_NAMESPACE} \
+                    --create-namespace \
+                    --set image.tag=${buildTag}
+                """
             }
         }
     }
@@ -108,10 +121,10 @@ pipeline {
             cleanWs()
         }
         success {
-            echo 'Pipeline completed successfully!'
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed!'
+            echo '❌ Pipeline failed!'
         }
     }
 }
