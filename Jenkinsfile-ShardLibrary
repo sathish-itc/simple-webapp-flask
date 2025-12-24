@@ -13,94 +13,50 @@ pipeline {
     }
 
     environment {
-        K8S_NAMESPACE = "${ENV}"
-        HELM_RELEASE  = "flask-${ENV}"
-
         SONAR_PROJECT_KEY = "sampleapp"
         SONAR_HOST_URL    = "http://20.75.196.235:9000"
-        SONAR_AUTH_TOKEN  = credentials('sonarkube-swathipothula')
+        SONAR_TOKEN       = credentials('sonarkube-swathipothula')
+
+        K8S_NAMESPACE = "${ENV}"
+        HELM_RELEASE  = "flask-${ENV}"
     }
 
     stages {
 
-        /* ---------------- CI STAGES ---------------- */
-
-        stage('Generate Build Tag') {
-            steps {
-                script {
-                    buildTag = generateTag()
-                }
-            }
-        }
-
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
                 git url: 'https://github.com/sathish-itc/simple-webapp-flask',
                     branch: "${params.BRANCH}"
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('Sonar Scan') {
             steps {
-                script {
-                    def scannerHome = tool(
-                        name: 'mysonarscanner',
-                        type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-                    )
-
-                    withSonarQubeEnv('sonarkube-swathi') {
-                        sh """
-                          ${scannerHome}/bin/sonar-scanner \
-                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                            -Dsonar.sources=. \
-                            -Dsonar.host.url=${SONAR_HOST_URL} \
-                            -Dsonar.login=${SONAR_AUTH_TOKEN}
-                        """
-                    }
-                }
+                sonarScan(
+                    scannerName: 'mysonarscanner',
+                    sonarServer: 'sonarkube-swathi',
+                    projectKey : SONAR_PROJECT_KEY,
+                    hostUrl    : SONAR_HOST_URL,
+                    token      : SONAR_TOKEN
+                )
             }
         }
 
-        stage('Quality Gate') {
+        stage('Sonar Quality Gate') {
             when {
                 expression { params.ENV == 'prod' }
             }
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
+                sonarQualityGate()
             }
         }
 
-        stage('Package Python Artifact') {
-    steps {
-        sh '''
-          mkdir -p dist
-          tar -czf dist/flask-app-${APP_VERSION}.tar.gz \
-            --exclude=dist \
-            --exclude=.git \
-            .
-        '''
-        archiveArtifacts artifacts: 'dist/*.tar.gz', fingerprint: true
-    }
-}
-
-
-        /* ---------------- CD STAGES ---------------- */
-
-        stage('Build Docker Image') {
+        stage('Create Artifact') {
             steps {
-                script {
-                    buildDocker(buildTag)
-                }
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                script {
-                    pushDocker(buildTag)
-                }
+                sonarArtifact(
+                    name   : 'flask-app',
+                    version: params.APP_VERSION
+                )
             }
         }
 
@@ -109,12 +65,12 @@ pipeline {
                 expression { params.DEPLOY }
             }
             steps {
-                sh """
-                  helm upgrade --install ${HELM_RELEASE} ./helm \
-                    --namespace ${K8S_NAMESPACE} \
-                    --create-namespace \
-                    --set image.tag=${buildTag}
-                """
+                helmDeploy(
+                    release  : HELM_RELEASE,
+                    chartPath: './helm',
+                    namespace: K8S_NAMESPACE,
+                    imageTag : buildTag
+                )
             }
         }
     }
