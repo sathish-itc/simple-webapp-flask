@@ -1,10 +1,10 @@
-import os
+simport os
 from flask import Flask
 app = Flask(__name__)
 
 @app.route("/")
 def main():
-    return "Welcome! ITC"
+    return "Welcome! ITC devops"
 
 @app.route('/how are you')
 def hello():
